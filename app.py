@@ -3,95 +3,238 @@ import random
 import streamlit as st
 import streamlit.components.v1 as components
 
-st.set_page_config(page_title="NEON SHOOTER", page_icon="⚡", layout="wide")
+st.set_page_config(
+    page_title="Dino Run",
+    page_icon="🦖",
+    layout="wide"
+)
 
-# ===== NEON UI =====
 st.markdown("""
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700;900&display=swap');
+
 .stApp {
-    background: radial-gradient(ellipse at top, #14254b 0%, #080d1c 52%, #030610 100%);
-    color: #eaf6ff;
+    background: linear-gradient(#b8efff, #f4ffe1);
+    font-family: 'Nunito', sans-serif;
+    color: #24543c;
 }
-header[data-testid="stHeader"] {background: transparent;}
-h1 {color:#67f7ff !important;text-shadow:0 0 12px #00d9ff,0 0 30px #0077ff;}
-h2,h3 {color:#d8eaff !important;}
-[data-testid="stMetric"] {
-    background:linear-gradient(135deg,#101d37,#0a1024);
-    border:1px solid #245b83;border-radius:15px;padding:14px;
-    box-shadow:0 0 15px #00bfff18;
+.block-container {
+    max-width: 950px;
+    padding-top: 2rem;
 }
-[data-testid="stMetricValue"] {color:#65f7ff;}
+h1 {
+    text-align: center;
+    color: #237348;
+    font-weight: 900;
+}
+div[data-testid="stMetric"] {
+    background: #ffffffcc;
+    border: 2px solid #9bdab2;
+    border-radius: 14px;
+    padding: 14px;
+}
+div[data-testid="stMetricValue"] {
+    color: #237348;
+    font-weight: 900;
+}
 .stButton button {
-    background:linear-gradient(135deg,#142b4e,#17203b);
-    color:#8dfaff;border:1px solid #38cde8;border-radius:12px;
-    min-height:44px;font-weight:bold;transition:.2s;
+    width: 100%;
+    min-height: 50px;
+    background: #ffffff;
+    color: #237348;
+    border: 2px solid #58a977;
+    border-radius: 12px;
+    font-size: 18px;
+    font-weight: 900;
 }
 .stButton button:hover {
-    background:#174a67;color:white;border-color:#8dfaff;
-    box-shadow:0 0 18px #00d9ff65;transform:translateY(-2px);
+    background: #e1ffe9;
+    border-color: #ff9c45;
+    color: #d36a23;
 }
-hr {border-color:#233a5c;}
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("# ⚡ NEON SHOOTER")
-st.caption("SURVIVAL PROTOCOL // 2088")
-
-SIZE = 8
+# Khởi tạo game
+if "score" not in st.session_state:
+    st.session_state.score = 0
+    st.session_state.best = 0
+    st.session_state.turn = 0
+    st.session_state.over = False
+    st.session_state.obstacles = ["🌵", "🪨", "🌵", "🌵"]
 
 def reset_game():
-    st.session_state["player"] = [4, 4]
-    st.session_state["enemies"] = [[0, 0], [0, 7], [7, 0], [7, 7]]
-    st.session_state["hp"] = 100
-    st.session_state["score"] = 0
-    st.session_state["turn"] = 1
-    st.session_state["message"] = "Hệ thống online. Tiêu diệt toàn bộ mục tiêu!"
-    st.session_state["effect"] = "idle"
-    st.session_state["over"] = False
+    st.session_state.score = 0
+    st.session_state.turn = 0
+    st.session_state.over = False
+    st.session_state.obstacles = [
+        random.choice(["🌵", "🪨"]),
+        "🌵", "🪨", "🌵"
+    ]
 
-# Defensive initialization: supports fresh sessions and missing state keys.
-if "player" not in st.session_state:
-    reset_game()
-else:
-    defaults = {
-        "enemies": [[0, 0], [0, 7], [7, 0], [7, 7]],
-        "hp": 100, "score": 0, "turn": 1,
-        "message": "Hệ thống online. Tiêu diệt toàn bộ mục tiêu!",
-        "effect": "idle", "over": False
-    }
-    for key, value in defaults.items():
-        if key not in st.session_state:
-            st.session_state[key] = value
-
-def enemy_turn():
-    if st.session_state["over"]:
+def play(jump):
+    if st.session_state.over:
         return
 
-    player = st.session_state["player"]
-    enemies = st.session_state["enemies"]
-    damage = 0
+    obstacles = st.session_state.obstacles
+    hit = obstacles[0] in ["🌵", "🪨"]
 
-    for enemy in enemies:
-        distance = abs(enemy[0] - player[0]) + abs(enemy[1] - player[1])
-        if distance <= 1:
-            damage += 10
-            continue
+    # Chướng ngại vật tiến về phía khủng long.
+    st.session_state.obstacles = (
+        obstacles[1:] +
+        [random.choice(["🌵", "🌵", "🪨", "🌲"])]
+    )
 
-        if random.random() < 0.8:
-            if abs(enemy[0] - player[0]) >= abs(enemy[1] - player[1]):
-                enemy[0] += 1 if player[0] > enemy[0] else -1
-            else:
-                enemy[1] += 1 if player[1] > enemy[1] else -1
+    st.session_state.turn += 1
+    st.session_state.score += random.randint(5, 12)
 
-    st.session_state["hp"] = max(0, st.session_state["hp"] - damage)
-    st.session_state["turn"] += 1
+    # Nhảy sẽ tránh được chướng ngại vật ở lượt này.
+    if hit and not jump:
+        st.session_state.over = True
 
-    if damage:
-        st.session_state["message"] = f"⚠️ Bạn bị tấn công! Mất {damage} máu."
-        st.session_state["effect"] = "damage"
+    st.session_state.best = max(
+        st.session_state.best,
+        st.session_state.score
+    )
 
-    if st.session_state["hp"] <= 0:
-        st.session_state["over"] = True
-        st.session_state["message"] = "💀 TÍN HIỆU SINH TỒN ĐÃ MẤT!"
-    elif not enemies:
-        st.session_state["over"] = True
+# Tiêu đề
+st.markdown("<h1>🦖 DINO RUN 🦖</h1>", unsafe_allow_html=True)
+st.markdown(
+    "<p style='text-align:center'>"
+    "CHẠY THẬT NHANH • NHẢY THẬT CAO • ĐỪNG ĐỤNG CÂY XƯƠNG RỒNG!"
+    "</p>",
+    unsafe_allow_html=True
+)
+
+# Bảng điểm
+a, b, c = st.columns(3)
+a.metric("🏁 ĐIỂM", st.session_state.score)
+b.metric("🏆 KỶ LỤC", st.session_state.best)
+c.metric("👣 LƯỢT CHẠY", st.session_state.turn)
+
+# Sân chơi hoạt hình
+scene = """
+<div class="game">
+    <div class="sun">☀️</div>
+    <div class="cloud cloud1">☁️</div>
+    <div class="cloud cloud2">☁️</div>
+    <div class="mountain m1"></div>
+    <div class="mountain m2"></div>
+    <div class="dino">🦖</div>
+    <div class="obstacles">""" + "　".join(
+        st.session_state.obstacles
+    ) + """</div>
+    <div class="ground"></div>
+    <div class="ground-line"></div>
+    <div class="label">DINO WORLD • LEVEL 1</div>
+</div>
+
+<style>
+.game {
+    position: relative;
+    height: 300px;
+    overflow: hidden;
+    border: 3px solid #79c59b;
+    border-radius: 18px;
+    background: linear-gradient(
+        #9ce4ff 0%, #d9f8ff 67%,
+        #eaffc8 67%, #eaffc8 100%
+    );
+    box-shadow: 0 7px 0 #a9d8b8;
+}
+.sun {
+    position: absolute;
+    top: 25px;
+    right: 10%;
+    font-size: 42px;
+}
+.cloud {
+    position: absolute;
+    font-size: 34px;
+}
+.cloud1 {top: 30px; left: 15%;}
+.cloud2 {top: 85px; left: 62%;}
+.mountain {
+    position: absolute;
+    bottom: 95px;
+    width: 220px;
+    height: 90px;
+    border-radius: 100% 100% 0 0;
+    background: #a5dfb2;
+}
+.m1 {left: -40px;}
+.m2 {right: -50px; height: 70px; background: #86cf9b;}
+.dino {
+    position: absolute;
+    left: 10%;
+    bottom: 55px;
+    font-size: 60px;
+    z-index: 2;
+    filter: drop-shadow(0 4px 0 #8bc79a);
+}
+.obstacles {
+    position: absolute;
+    left: 40%;
+    right: 2%;
+    bottom: 55px;
+    font-size: 36px;
+    white-space: nowrap;
+    letter-spacing: 8px;
+    z-index: 2;
+}
+.ground {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 52px;
+    height: 5px;
+    background: #4d9a63;
+}
+.ground-line {
+    position: absolute;
+    bottom: 25px;
+    left: 0;
+    color: #70b781;
+    font-size: 25px;
+    letter-spacing: 12px;
+}
+.label {
+    position: absolute;
+    top: 12px;
+    left: 14px;
+    font: bold 11px monospace;
+    color: #34775b;
+    letter-spacing: 2px;
+}
+</style>
+"""
+
+components.html(scene, height=320, scrolling=False)
+
+# Điều khiển
+if st.session_state.over:
+    st.error("💥 GAME OVER! Khủng long đã va vào chướng ngại vật.")
+
+    if st.button("🔄 CHƠI LẠI"):
+        reset_game()
+        st.rerun()
+else:
+    st.info(
+        "Cách chơi: mỗi lần bấm là một bước. "
+        "Bấm NHẢY để vượt qua vật cản!"
+    )
+
+    left, right = st.columns(2)
+
+    with left:
+        if st.button("🦘 NHẢY!"):
+            play(jump=True)
+            st.rerun()
+
+    with right:
+        if st.button("🏃 CHẠY TIẾP"):
+            play(jump=False)
+            st.rerun()
+
+st.divider()
+st.caption("🦖 DINO RUN • Python + Streamlit")
